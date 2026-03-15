@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { makeAddCommand } from "@/commands/add.ts";
 import type { Settings } from "@/settings.ts";
 import { withFakeHome } from "@/test_utils.ts";
@@ -102,6 +102,56 @@ Deno.test("makeAddCommand overwrites with --force", async () => {
 
     const content = await Deno.readTextFile(`${workingDir}/home/.bashrc`);
     assertEquals(content, "new content");
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("makeAddCommand adds directory recursively", async () => {
+  const tmp = await Deno.makeTempDir();
+  try {
+    const fakeHome = `${tmp}/fakehome`;
+    const workingDir = `${tmp}/dotfiles`;
+    await Deno.mkdir(`${fakeHome}/.config/app`, { recursive: true });
+    await Deno.mkdir(workingDir, { recursive: true });
+
+    await Deno.writeTextFile(`${fakeHome}/.config/app/config.toml`, "key=1");
+    await Deno.writeTextFile(`${fakeHome}/.config/app/theme.json`, "{}");
+
+    const settings: Settings = { workingDir, vars: {} };
+    const cmd = makeAddCommand(settings);
+
+    await withFakeHome(fakeHome, () => cmd.parse([`${fakeHome}/.config/app`]));
+
+    assertEquals(
+      await Deno.readTextFile(`${workingDir}/home/.config/app/config.toml`),
+      "key=1",
+    );
+    assertEquals(
+      await Deno.readTextFile(`${workingDir}/home/.config/app/theme.json`),
+      "{}",
+    );
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("makeAddCommand errors for nonexistent path", async () => {
+  const tmp = await Deno.makeTempDir();
+  try {
+    const fakeHome = `${tmp}/fakehome`;
+    const workingDir = `${tmp}/dotfiles`;
+    await Deno.mkdir(fakeHome, { recursive: true });
+    await Deno.mkdir(workingDir, { recursive: true });
+
+    const settings: Settings = { workingDir, vars: {} };
+    const cmd = makeAddCommand(settings);
+
+    await assertRejects(
+      () => withFakeHome(fakeHome, () => cmd.parse([`${fakeHome}/nope`])),
+      Error,
+      "does not exist or is not a file",
+    );
   } finally {
     await Deno.remove(tmp, { recursive: true });
   }
