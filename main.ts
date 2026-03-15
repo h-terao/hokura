@@ -7,12 +7,14 @@ import {
   makeCdCommand,
   makeInitCommand,
 } from "@/commands/mod.ts";
+import { VERSION } from "@/version.ts";
 
 if (import.meta.main) {
   const settings = await loadSettings();
 
   const hokura = new Command()
     .name("hokura")
+    .version(VERSION)
     .description("dotfiles manager")
     .action(function () {
       this.showHelp();
