@@ -155,6 +155,8 @@ name = "alice"
 
 You can use `{{ name }}` in your dotfiles, and it will be replaced with `alice`.
 
-User-defined variables take precedence over both built-in variables and
-environment variables. For example, if you define `EDITOR` in the configuration
-file, it overrides the `EDITOR` environment variable.
+The variable priority is: environment variables > user-defined variables >
+built-in variables. For example, if you define `home` in the configuration file,
+it overrides the built-in `home` variable. Environment variables always take
+precedence — if the `EDITOR` environment variable is set, it cannot be
+overridden by `vars.env.EDITOR` in the configuration file.
