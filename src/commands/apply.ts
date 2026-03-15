@@ -1,7 +1,7 @@
 import { dirname, join, relative } from "@std/path";
 import { Command } from "@cliffy/command";
 import type { Settings } from "@/settings.ts";
-import { expandHome, isDir } from "@/utils.ts";
+import { deepMerge, expandHome, isDir } from "@/utils.ts";
 import vento from "ventojs";
 
 const env = vento();
@@ -34,12 +34,11 @@ export const makeApplyCommand = (settings: Settings) => {
         throw new Error(`${homeDir} does not exist.`);
       }
 
-      const data: Record<string, unknown> = {
-        home,
-        os: Deno.build.os,
-        env: Deno.env.toObject(),
-        ...settings.vars,
-      };
+      const data = deepMerge(
+        { home, os: Deno.build.os },
+        settings.vars,
+        { env: Deno.env.toObject() },
+      );
 
       for await (const filePath of walkFiles(homeDir)) {
         const rel = relative(homeDir, filePath);
