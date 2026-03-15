@@ -1,6 +1,6 @@
 {
   "name": "@h-terao/hokura",
-  "version": "0.0.0",
+  "version": "0.2.3",
   "exports": "./main.ts",
   "tasks": {
     "dev": "deno run --watch main.ts"
