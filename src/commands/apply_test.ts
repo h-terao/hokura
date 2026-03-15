@@ -55,6 +55,74 @@ Deno.test("makeApplyCommand writes files to home", async () => {
   }
 });
 
+Deno.test("makeApplyCommand applies only specified files", async () => {
+  const tmp = await Deno.makeTempDir();
+  try {
+    const fakeHome = `${tmp}/fakehome`;
+    const workingDir = `${tmp}/dotfiles`;
+    await Deno.mkdir(fakeHome, { recursive: true });
+    await Deno.mkdir(`${workingDir}/home/.config`, { recursive: true });
+    await Deno.writeTextFile(`${workingDir}/home/.bashrc`, "bash content");
+    await Deno.writeTextFile(
+      `${workingDir}/home/.config/fish.conf`,
+      "fish content",
+    );
+
+    const settings: Settings = { workingDir, vars: {} };
+    const cmd = makeApplyCommand(settings);
+
+    await withFakeHome(fakeHome, () => cmd.parse([".bashrc"]));
+
+    const bashrc = await Deno.readTextFile(`${fakeHome}/.bashrc`);
+    assertEquals(bashrc, "bash content");
+
+    // .config/fish.conf should NOT have been written
+    let fishExists = false;
+    try {
+      await Deno.stat(`${fakeHome}/.config/fish.conf`);
+      fishExists = true;
+    } catch {
+      // expected
+    }
+    assertEquals(fishExists, false);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("makeApplyCommand dry-run with file filter", async () => {
+  const tmp = await Deno.makeTempDir();
+  try {
+    const fakeHome = `${tmp}/fakehome`;
+    const workingDir = `${tmp}/dotfiles`;
+    await Deno.mkdir(fakeHome, { recursive: true });
+    await Deno.mkdir(`${workingDir}/home/.config`, { recursive: true });
+    await Deno.writeTextFile(`${workingDir}/home/.bashrc`, "bash");
+    await Deno.writeTextFile(`${workingDir}/home/.config/fish.conf`, "fish");
+
+    const settings: Settings = { workingDir, vars: {} };
+    const cmd = makeApplyCommand(settings);
+
+    const output: string[] = [];
+    const originalLog = console.log;
+    console.log = (msg: string) => output.push(msg);
+
+    try {
+      await withFakeHome(
+        fakeHome,
+        () => cmd.parse(["--dry-run", ".config/fish.conf"]),
+      );
+    } finally {
+      console.log = originalLog;
+    }
+
+    assertEquals(output.length, 1);
+    assertEquals(output[0].includes("fish.conf"), true);
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
 Deno.test("makeApplyCommand merges user env vars with system env vars", async () => {
   const tmp = await Deno.makeTempDir();
   try {
