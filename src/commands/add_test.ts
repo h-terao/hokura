@@ -51,6 +51,38 @@ Deno.test("makeAddCommand skips existing file without --force", async () => {
   }
 });
 
+Deno.test("makeAddCommand copies multiple files", async () => {
+  const tmp = await Deno.makeTempDir();
+  try {
+    const fakeHome = `${tmp}/fakehome`;
+    const workingDir = `${tmp}/dotfiles`;
+    await Deno.mkdir(fakeHome, { recursive: true });
+    await Deno.mkdir(workingDir, { recursive: true });
+
+    await Deno.writeTextFile(`${fakeHome}/.bashrc`, "bashrc content");
+    await Deno.writeTextFile(`${fakeHome}/.vimrc`, "vimrc content");
+
+    const settings: Settings = { workingDir, vars: {} };
+    const cmd = makeAddCommand(settings);
+
+    await withFakeHome(
+      fakeHome,
+      () => cmd.parse([`${fakeHome}/.bashrc`, `${fakeHome}/.vimrc`]),
+    );
+
+    assertEquals(
+      await Deno.readTextFile(`${workingDir}/home/.bashrc`),
+      "bashrc content",
+    );
+    assertEquals(
+      await Deno.readTextFile(`${workingDir}/home/.vimrc`),
+      "vimrc content",
+    );
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
 Deno.test("makeAddCommand overwrites with --force", async () => {
   const tmp = await Deno.makeTempDir();
   try {
