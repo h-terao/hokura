@@ -1,4 +1,4 @@
-import { dirname, join, relative } from "@std/path";
+import { dirname, join, normalize, relative } from "@std/path";
 import { Command } from "@cliffy/command";
 import type { Settings } from "@/settings.ts";
 import { deepMerge, expandHome, isDir } from "@/utils.ts";
@@ -20,8 +20,9 @@ const walkFiles = async function* (dir: string): AsyncGenerator<string> {
 export const makeApplyCommand = (settings: Settings) => {
   return new Command()
     .description("Apply dotfiles to the system")
+    .arguments("[files...:string]")
     .option("--dry-run", "Show what would be done without making changes")
-    .action(async (options: { dryRun?: boolean }) => {
+    .action(async (options: { dryRun?: boolean }, ...files: string[]) => {
       const home = Deno.env.get("HOME");
       if (!home) {
         throw new Error("HOME environment variable is not set.");
@@ -40,8 +41,17 @@ export const makeApplyCommand = (settings: Settings) => {
         { env: Deno.env.toObject() },
       );
 
+      const filterSet = files.length > 0
+        ? new Set(files.map((f) => normalize(f)))
+        : null;
+
       for await (const filePath of walkFiles(homeDir)) {
         const rel = relative(homeDir, filePath);
+
+        if (filterSet && !filterSet.has(normalize(rel))) {
+          continue;
+        }
+
         const dest = join(home, rel);
 
         if (options.dryRun) {
